@@ -18,6 +18,7 @@ import authRoutes from './routes/authRoutes.js';
 import departmentRoutes from './routes/departmentRoutes.js';
 import shiftRoutes from './routes/shiftRoutes.js';
 import locationRoutes from './routes/locationRoutes.js';
+import workforceRoutes from './routes/workforceRoutes.js';
 import { errorMiddleware } from './middleware/errorMiddleware.js';
 
 const app = express();
@@ -37,6 +38,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/admin/departments', departmentRoutes);
 app.use('/api/admin/shifts', shiftRoutes);
 app.use('/api/admin/locations', locationRoutes);
+app.use('/api/admin/workers', workforceRoutes);
 app.use((request, response, next) => { response.on('finish', () => { if (database.connected && request.method !== 'GET' && response.statusCode < 400) persistStore(data).catch(error => console.error('Persistence failed:', error.message)); }); next(); });
 
 const now = () => new Date();
@@ -142,11 +144,6 @@ app.post('/api/complaints/:id/reopen', auth, roles('USER'), (req, res) => { cons
 app.put('/api/complaints/:id', auth, roles('USER', 'MANAGER', 'ADMIN'), (req, res) => { const c = data.complaints.find(x => x._id === req.params.id); if (!c || (req.user.role === 'USER' && c.createdBy !== req.user._id)) return res.status(404).json({ success: false, message: 'Complaint not found' }); if (req.body.priority && ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'].includes(req.body.priority)) { c.priority = req.body.priority; log('MANUAL_PRIORITY_CHANGE', `Priority changed to ${c.priority}`, c, { changedBy: req.user._id }); } if (req.body.status && statuses.includes(req.body.status)) c.status = req.body.status; c.updatedAt = now(); ok(res, complaintView(c), 'Complaint updated'); });
 app.post('/api/complaints/:id/feedback', auth, roles('USER'), (req, res) => { const c = data.complaints.find(x => x._id === req.params.id && x.createdBy === req.user._id); if (!c) return res.status(404).json({ success: false, message: 'Complaint not found' }); c.userRating = Math.min(5, Math.max(1, Number(req.body.rating))); c.userFeedback = req.body.feedback || ''; ok(res, complaintView(c), 'Feedback saved'); });
 app.use('/api/notifications', auth, notificationRoutes);
-app.get('/api/admin/workers', auth, roles('ADMIN', 'MANAGER'), (req, res) => ok(res, data.users.filter(u => u.role === 'WORKER').map(publicUser)));
-app.post('/api/admin/workers', auth, roles('ADMIN'), async (req, res) => { const { name, email, department, skills = [], maxActiveJobs = 4 } = req.body; if (data.users.some(u => u.email === email)) return res.status(409).json({ success: false, message: 'Email already exists' }); const dept = data.departments.find(d => d._id === department) || data.departments[0]; const worker = addUser(name, email, 'WORKER', dept, skills, 'AVAILABLE', maxActiveJobs); worker.password = await bcrypt.hash(req.body.password || 'Worker@123', 10); ok(res, publicUser(worker), 'Worker created'); });
-app.put('/api/admin/workers/:id', auth, roles('ADMIN'), (req, res) => { const worker = data.users.find(u => u._id === req.params.id && u.role === 'WORKER'); if (!worker) return res.status(404).json({ success: false, message: 'Worker not found' }); Object.assign(worker, req.body); ok(res, publicUser(worker), 'Worker updated'); });
-app.patch('/api/admin/workers/:id/status', auth, roles('ADMIN'), (req, res) => { const worker = data.users.find(u => u._id === req.params.id && u.role === 'WORKER'); if (!worker) return res.status(404).json({ success: false, message: 'Worker not found' }); worker.isActive = Boolean(req.body.isActive); worker.availability = worker.isActive ? 'AVAILABLE' : 'INACTIVE'; log('WORKFORCE', `${worker.name} marked ${worker.isActive ? 'active' : 'inactive'}`); ok(res, publicUser(worker), 'Worker status updated'); });
-app.post('/api/admin/workers/:id/reset-password', auth, roles('ADMIN'), async (req, res) => { const worker = data.users.find(u => u._id === req.params.id && u.role === 'WORKER'); if (!worker) return res.status(404).json({ success: false, message: 'Worker not found' }); worker.password = await bcrypt.hash(req.body.password || 'Worker@123', 10); worker.mustChangePassword = true; ok(res, null, 'Temporary password reset'); });
 app.get('/api/admin/automation', auth, roles('ADMIN', 'MANAGER'), (_, res) => ok(res, data.logs));
 app.get('/api/admin/insights', auth, roles('ADMIN', 'MANAGER'), (_, res) => ok(res, data.insights));
 app.get('/api/admin/escalations', auth, roles('ADMIN', 'MANAGER'), (_, res) => ok(res, data.escalations));
