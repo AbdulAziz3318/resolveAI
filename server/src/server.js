@@ -14,6 +14,8 @@ import { calculateSla } from './utils/calculateSla.js';
 import { connectDatabase, hydrateStore, persistStore } from './config/db.js';
 import notificationRoutes from './routes/notificationRoutes.js';
 import { listNotifications, markAllNotificationsRead, markNotificationRead, notificationPayload } from './services/notificationService.js';
+import authRoutes from './routes/authRoutes.js';
+import { errorMiddleware } from './middleware/errorMiddleware.js';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -28,6 +30,7 @@ app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:5173' }));
 app.use(express.json());
 app.use(morgan('tiny'));
 app.use('/api/auth', rateLimit({ windowMs: 15 * 60 * 1000, limit: 80 }));
+app.use('/api/auth', authRoutes);
 app.use((request, response, next) => { response.on('finish', () => { if (database.connected && request.method !== 'GET' && response.statusCode < 400) persistStore(data).catch(error => console.error('Persistence failed:', error.message)); }); next(); });
 
 const now = () => new Date();
@@ -121,10 +124,6 @@ function scoreWorker(worker, complaint) { const active = data.complaints.filter(
 function assign(complaint, excluded = []) { const ranked = data.users.map(u => scoreWorker(u, complaint)).filter(x => x && !excluded.includes(x.worker._id)).sort((a, b) => b.score - a.score); const best = ranked[0]; if (!best) { complaint.status = 'ESCALATED'; data.escalations.unshift({ _id: randomUUID(), complaint: complaint._id, level: 'LEVEL_1', reason: 'No eligible worker available', status: 'OPEN', createdAt: now() }); log('ESCALATION', 'Complaint escalated because no eligible worker was available', complaint); return null; } const assignment = { _id: randomUUID(), complaint: complaint._id, worker: best.worker._id, assignmentScore: best.score, scoreBreakdown: best.breakdown, assignedAt: now(), acceptanceDeadline: new Date(Date.now() + 15 * 60000), reassignmentAttempt: 0, status: 'PENDING_ACCEPTANCE' }; data.assignments.unshift(assignment); complaint.assignedWorker = best.worker._id; complaint.status = 'AWAITING_ACCEPTANCE'; const department = data.departments.find(item => item._id === complaint.department); complaint.slaDeadline = calculateSla(complaint.priority, now(), department?.defaultSlaHours); notify(best.worker, 'ASSIGNMENT', 'New assignment', `${complaint.complaintId} · ${complaint.title}`, complaint, assignment); log('SMART_ASSIGNMENT', `Complaint automatically assigned to ${best.worker.name}`, complaint, { assignmentScore: best.score, scoreBreakdown: best.breakdown }); return assignment; }
 
 app.get('/api/health', (_, res) => ok(res, { status: 'healthy', service: 'ResolveAI API', mode: database.mode }));
-app.post('/api/auth/register', async (req, res) => { const { name, email, password: rawPassword } = req.body; if (!name || !email || !rawPassword) return res.status(400).json({ success: false, message: 'Name, email and password are required' }); if (data.users.some(u => u.email === email.toLowerCase())) return res.status(409).json({ success: false, message: 'Email already registered' }); const user = { _id: randomUUID(), name, email: email.toLowerCase(), role: 'USER', password: await bcrypt.hash(rawPassword, 10), availability: 'AVAILABLE', isActive: true, maxActiveJobs: 0, averageRating: 0, createdAt: now() }; data.users.push(user); ok(res, { user: publicUser(user), token: tokenFor(user) }, 'Account created'); });
-app.post('/api/auth/login', async (req, res) => { const user = data.users.find(u => u.email === req.body.email?.toLowerCase()); if (!user || !(await bcrypt.compare(req.body.password || '', user.password))) return res.status(401).json({ success: false, message: 'Invalid email or password' }); ok(res, { user: publicUser(user), token: tokenFor(user) }, 'Welcome back'); });
-app.get('/api/auth/me', auth, (req, res) => ok(res, publicUser(req.user)));
-app.post('/api/auth/change-password', auth, async (req, res) => { req.user.password = await bcrypt.hash(req.body.password, 10); req.user.mustChangePassword = false; ok(res, null, 'Password updated'); });
 app.get('/api/complaints', auth, (req, res) => { let items = data.complaints; if (req.user.role === 'USER') items = items.filter(c => c.createdBy === req.user._id); if (req.user.role === 'WORKER') items = items.filter(c => c.assignedWorker === req.user._id); if (req.user.role === 'MANAGER') items = items.filter(c => c.department === req.user.department); ok(res, items.map(complaintView)); });
 app.get('/api/complaints/my', auth, (req, res) => ok(res, data.complaints.filter(c => c.createdBy === req.user._id).map(complaintView)));
 app.get('/api/complaints/:id', auth, (req, res) => { const complaint = data.complaints.find(c => c._id === req.params.id || c.complaintId === req.params.id); if (!complaint) return res.status(404).json({ success: false, message: 'Complaint not found' }); ok(res, complaintView(complaint)); });
@@ -175,6 +174,7 @@ app.post('/api/incidents/:id/close', auth, roles('ADMIN', 'MANAGER'), (req, res)
 app.get('/api/manager/dashboard', auth, roles('MANAGER'), (req, res) => ok(res, { complaints: data.complaints.filter(c => c.department === req.user.department), workers: data.users.filter(u => u.department === req.user.department && u.role === 'WORKER'), escalations: data.escalations }));
 app.get('/api/worker/dashboard', auth, roles('WORKER'), (req, res) => ok(res, { complaints: data.complaints.filter(c => c.assignedWorker === req.user._id), notifications: data.notifications.filter(n => n.user === req.user._id), worker: publicUser(req.user) }));
 app.use((_, res) => res.status(404).json({ success: false, message: 'Route not found' }));
+app.use(errorMiddleware);
 cron.schedule('*/5 * * * *', () => { data.complaints.filter(c => !['CLOSED', 'CANCELLED'].includes(c.status) && c.slaDeadline < now() && !c.slaBreached).forEach(c => { c.slaBreached = true; c.status = 'ESCALATED'; log('SLA_BREACH', 'SLA deadline exceeded; manager intervention required', c); }); });
 database = await connectDatabase();
 if (database.connected) {
