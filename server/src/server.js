@@ -17,7 +17,11 @@ import { listNotifications, markAllNotificationsRead, markNotificationRead, noti
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const JWT_SECRET = process.env.JWT_SECRET || 'resolveai-development-secret';
+const JWT_SECRET = process.env.JWT_SECRET;
+
+if (!JWT_SECRET) {
+  throw new Error('JWT_SECRET is required in server/.env');
+}
 let database = { connected: false, mode: 'demo-store' };
 app.use(helmet());
 app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:5173' }));
