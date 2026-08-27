@@ -19,6 +19,7 @@ import departmentRoutes from './routes/departmentRoutes.js';
 import shiftRoutes from './routes/shiftRoutes.js';
 import locationRoutes from './routes/locationRoutes.js';
 import workforceRoutes from './routes/workforceRoutes.js';
+import managerProvisioningRoutes from './routes/managerProvisioningRoutes.js';
 import { errorMiddleware } from './middleware/errorMiddleware.js';
 
 const app = express();
@@ -39,6 +40,10 @@ app.use('/api/admin/departments', departmentRoutes);
 app.use('/api/admin/shifts', shiftRoutes);
 app.use('/api/admin/locations', locationRoutes);
 app.use('/api/admin/workers', workforceRoutes);
+app.use(
+  '/api/admin/managers',
+  managerProvisioningRoutes,
+);
 app.use((request, response, next) => { response.on('finish', () => { if (database.connected && request.method !== 'GET' && response.statusCode < 400) persistStore(data).catch(error => console.error('Persistence failed:', error.message)); }); next(); });
 
 const now = () => new Date();

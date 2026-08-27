@@ -264,3 +264,87 @@ export async function resetWorkerPassword(id, temporaryPassword) {
 
   await worker.save();
 }
+
+export async function listManagers() {
+  return User.find({
+    role: 'MANAGER',
+  })
+    .populate('department', 'name')
+    .sort({ name: 1 });
+}
+
+export async function createManager(input) {
+  const requiredFields = [
+    'name',
+    'employeeId',
+    'email',
+    'phone',
+    'department',
+    'temporaryPassword',
+  ];
+
+  for (const field of requiredFields) {
+    if (!input[field] || String(input[field]).trim() === '') {
+      throw createError(400, `${field} is required`);
+    }
+  }
+
+  if (input.temporaryPassword.length < 8) {
+    throw createError(
+      400,
+      'Temporary password must be at least 8 characters',
+    );
+  }
+
+  validateId(input.department, 'department');
+
+  const department = await Department.findOne({
+    _id: input.department,
+    isActive: true,
+  });
+
+  if (!department) {
+    throw createError(
+      400,
+      'Department does not exist or is inactive',
+    );
+  }
+
+  const email = input.email.trim().toLowerCase();
+  const employeeId = input.employeeId.trim();
+
+  const duplicate = await User.findOne({
+    $or: [{ email }, { employeeId }],
+  });
+
+  if (duplicate) {
+    throw createError(
+      409,
+      duplicate.email === email
+        ? 'Email already exists'
+        : 'Employee ID already exists',
+    );
+  }
+
+  const manager = await User.create({
+    name: input.name.trim(),
+    employeeId,
+    email,
+    phone: input.phone.trim(),
+    password: await bcrypt.hash(
+      input.temporaryPassword,
+      12,
+    ),
+    role: 'MANAGER',
+    department: department._id,
+    availability: 'AVAILABLE',
+    maxActiveJobs: 0,
+    mustChangePassword: true,
+    isActive: true,
+  });
+
+  department.manager = manager._id;
+  await department.save();
+
+  return publicUser(manager);
+}
