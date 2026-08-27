@@ -1,3 +1,60 @@
-// Purpose: Controller boundary for department configuration.
-import { respond } from './controllerTools.js';
-export const departmentController = { list(_request, response) { return respond(response, []); }, create(request, response) { return respond(response, request.body, 'Department created'); } };
+import {
+  createDepartment,
+  listDepartments,
+  updateDepartment,
+} from '../services/departmentService.js';
+
+export const departmentController = {
+  async list(request, response, next) {
+    try {
+      const includeInactive =
+        request.user.role === 'ADMIN' &&
+        request.query.includeInactive === 'true';
+
+      const departments = await listDepartments({
+        includeInactive,
+      });
+
+      return response.json({
+        success: true,
+        message: 'Departments retrieved',
+        data: departments,
+      });
+    } catch (error) {
+      return next(error);
+    }
+  },
+
+  async create(request, response, next) {
+    try {
+      const department = await createDepartment(
+        request.body,
+      );
+
+      return response.status(201).json({
+        success: true,
+        message: 'Department created',
+        data: department,
+      });
+    } catch (error) {
+      return next(error);
+    }
+  },
+
+  async update(request, response, next) {
+    try {
+      const department = await updateDepartment(
+        request.params.id,
+        request.body,
+      );
+
+      return response.json({
+        success: true,
+        message: 'Department updated',
+        data: department,
+      });
+    } catch (error) {
+      return next(error);
+    }
+  },
+};
