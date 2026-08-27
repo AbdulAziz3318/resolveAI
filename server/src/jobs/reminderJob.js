@@ -1,0 +1,1 @@
+export function findReminderCandidates(assignments, now = new Date()) { return assignments.filter(assignment => assignment.status === 'PENDING_ACCEPTANCE' && assignment.acceptanceDeadline - now < 5 * 60 * 1000); }

@@ -1,0 +1,1 @@
+export function incidentStatusTransition(incident, status) { if (!['OPEN', 'INVESTIGATING', 'RESOLVED', 'CLOSED'].includes(status)) throw new Error('Invalid incident status'); incident.status = status; if (status === 'RESOLVED') incident.resolvedAt = new Date(); return incident; }

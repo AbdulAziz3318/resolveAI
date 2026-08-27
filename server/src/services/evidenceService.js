@@ -1,0 +1,1 @@
+export function validateEvidence({ description, mimetype, size }) { const supported = new Set(['image/jpeg', 'image/png', 'image/webp']); return Boolean(description && supported.has(mimetype) && size <= 5 * 1024 * 1024); }

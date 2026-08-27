@@ -1,0 +1,2 @@
+// Purpose: Public product entry page.
+export default function Landing() { return <main className="public-page"><div className="eyebrow">RESOLVEAI OPERATIONS PLATFORM</div><h1>Resolve Problems Before They Become Bigger Problems.</h1><p>AI-powered issue routing, smart workforce assignment, automated escalation and recurring-problem intelligence.</p><a className="primary-button" href="/login">Enter workspace</a></main>; }

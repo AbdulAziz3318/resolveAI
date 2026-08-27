@@ -1,0 +1,2 @@
+// Purpose: Compare recent complaints without deleting possible duplicates.
+export function similarityScore(first, second) { const left = new Set(`${first.title} ${first.description}`.toLowerCase().split(/\W+/).filter(Boolean)); const right = new Set(`${second.title} ${second.description}`.toLowerCase().split(/\W+/).filter(Boolean)); return Math.round([...left].filter(word => right.has(word)).length / Math.max(left.size, right.size, 1) * 100) / 100; }

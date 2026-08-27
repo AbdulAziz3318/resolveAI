@@ -1,0 +1,1 @@
+export default function PriorityBadge({ priority }) { return <span className={`priority ${priority === 'CRITICAL' ? 'red' : priority === 'HIGH' ? 'orange' : priority === 'MEDIUM' ? 'amber' : 'green'}`}>{priority}</span>; }

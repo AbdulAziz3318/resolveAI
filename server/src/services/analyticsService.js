@@ -1,0 +1,1 @@
+export function summarizeComplaints(complaints) { const total = complaints.length; const closed = complaints.filter(item => item.status === 'CLOSED').length; return { total, open: total - closed, resolutionRate: total ? Math.round(closed / total * 100) : 0 }; }

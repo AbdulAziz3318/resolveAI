@@ -1,0 +1,3 @@
+// Purpose: Organization-wide administrative dashboard route.
+import PageShell from '../PageShell.jsx';
+export default function AdminDashboard() { return <PageShell title="Organization command center" description="Monitor issue volume, SLA health and workforce capacity." endpoint="/analytics/overview" columns={[{ key: 'totalComplaints', label: 'Complaints' }, { key: 'openComplaints', label: 'Open' }, { key: 'resolutionRate', label: 'Resolution rate', render: row => `${row.resolutionRate}%` }, { key: 'slaCompliance', label: 'SLA compliance', render: row => `${row.slaCompliance}%` }, { key: 'criticalIssues', label: 'Critical' }]} />; }

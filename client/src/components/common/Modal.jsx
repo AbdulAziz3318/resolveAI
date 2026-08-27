@@ -1,0 +1,1 @@
+export default function Modal({ children, onClose }) { return <div className="modal-backdrop"><div className="modal"><button className="modal-close" onClick={onClose} aria-label="Close">×</button>{children}</div></div>; }

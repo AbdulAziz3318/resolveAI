@@ -1,0 +1,1 @@
+export function requireFields(fields) { return (request, response, next) => { const missing = fields.filter(field => !request.body?.[field]); if (missing.length) return response.status(400).json({ success: false, message: `Required fields: ${missing.join(', ')}` }); next(); }; }

@@ -1,0 +1,1 @@
+export default function AssignmentScoreBreakdown({ score = 0, breakdown = {} }) { return <div><strong>Assignment score: {score}</strong><p>{Object.entries(breakdown).map(([key, value]) => `${key}: ${value}`).join(' · ')}</p></div>; }

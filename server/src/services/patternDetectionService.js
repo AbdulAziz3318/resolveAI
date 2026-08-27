@@ -1,0 +1,2 @@
+// Purpose: Group recent complaints into recurring operational patterns.
+export function detectRecurringPatterns(complaints, threshold = 5) { const groups = new Map(); for (const complaint of complaints) { const key = `${complaint.category}:${complaint.location?.building || 'unknown'}`; groups.set(key, [...(groups.get(key) || []), complaint]); } return [...groups.entries()].filter(([, items]) => items.length >= threshold).map(([key, items]) => ({ key, category: items[0].category, location: items[0].location?.building, complaintCount: items.length })); }

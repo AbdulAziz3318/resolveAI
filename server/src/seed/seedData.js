@@ -1,0 +1,1 @@
+export const demoCredentials = { admin: ['admin@resolveai.demo', 'Admin@123'], manager: ['manager@resolveai.demo', 'Manager@123'], worker: ['worker@resolveai.demo', 'Worker@123'], user: ['user@resolveai.demo', 'User@123'] };

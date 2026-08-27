@@ -1,0 +1,1 @@
+export function runSlaMonitor(complaints, now = new Date()) { return complaints.filter(complaint => !['CLOSED', 'CANCELLED'].includes(complaint.status) && complaint.slaDeadline && complaint.slaDeadline < now); }

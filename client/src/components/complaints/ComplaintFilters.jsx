@@ -1,0 +1,1 @@
+export default function ComplaintFilters({ value, onChange }) { return <select value={value} onChange={event => onChange(event.target.value)}><option value="all">All issues</option><option value="open">Open</option><option value="critical">Critical</option></select>; }
