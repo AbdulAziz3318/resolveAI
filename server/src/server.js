@@ -17,6 +17,7 @@ import { listNotifications, markAllNotificationsRead, markNotificationRead, noti
 import authRoutes from './routes/authRoutes.js';
 import departmentRoutes from './routes/departmentRoutes.js';
 import shiftRoutes from './routes/shiftRoutes.js';
+import locationRoutes from './routes/locationRoutes.js';
 import { errorMiddleware } from './middleware/errorMiddleware.js';
 
 const app = express();
@@ -35,6 +36,7 @@ app.use('/api/auth', rateLimit({ windowMs: 15 * 60 * 1000, limit: 80 }));
 app.use('/api/auth', authRoutes);
 app.use('/api/admin/departments', departmentRoutes);
 app.use('/api/admin/shifts', shiftRoutes);
+app.use('/api/admin/locations', locationRoutes);
 app.use((request, response, next) => { response.on('finish', () => { if (database.connected && request.method !== 'GET' && response.statusCode < 400) persistStore(data).catch(error => console.error('Persistence failed:', error.message)); }); next(); });
 
 const now = () => new Date();
@@ -145,10 +147,6 @@ app.post('/api/admin/workers', auth, roles('ADMIN'), async (req, res) => { const
 app.put('/api/admin/workers/:id', auth, roles('ADMIN'), (req, res) => { const worker = data.users.find(u => u._id === req.params.id && u.role === 'WORKER'); if (!worker) return res.status(404).json({ success: false, message: 'Worker not found' }); Object.assign(worker, req.body); ok(res, publicUser(worker), 'Worker updated'); });
 app.patch('/api/admin/workers/:id/status', auth, roles('ADMIN'), (req, res) => { const worker = data.users.find(u => u._id === req.params.id && u.role === 'WORKER'); if (!worker) return res.status(404).json({ success: false, message: 'Worker not found' }); worker.isActive = Boolean(req.body.isActive); worker.availability = worker.isActive ? 'AVAILABLE' : 'INACTIVE'; log('WORKFORCE', `${worker.name} marked ${worker.isActive ? 'active' : 'inactive'}`); ok(res, publicUser(worker), 'Worker status updated'); });
 app.post('/api/admin/workers/:id/reset-password', auth, roles('ADMIN'), async (req, res) => { const worker = data.users.find(u => u._id === req.params.id && u.role === 'WORKER'); if (!worker) return res.status(404).json({ success: false, message: 'Worker not found' }); worker.password = await bcrypt.hash(req.body.password || 'Worker@123', 10); worker.mustChangePassword = true; ok(res, null, 'Temporary password reset'); });
-app.get('/api/admin/locations', auth, roles('ADMIN', 'MANAGER'), (_, res) => ok(res, data.locations));
-app.post('/api/admin/locations', auth, roles('ADMIN'), (req, res) => { const item = { _id: randomUUID(), name: req.body.name, type: req.body.type || 'BUILDING', description: req.body.description || '', isActive: true }; data.locations.push(item); ok(res, item, 'Location created'); });
-app.put('/api/admin/locations/:id', auth, roles('ADMIN'), (req, res) => { const item = data.locations.find(l => l._id === req.params.id); if (!item) return res.status(404).json({ success: false, message: 'Location not found' }); Object.assign(item, req.body); ok(res, item, 'Location updated'); });
-app.delete('/api/admin/locations/:id', auth, roles('ADMIN'), (req, res) => { const index = data.locations.findIndex(l => l._id === req.params.id); if (index >= 0) data.locations.splice(index, 1); ok(res, null, 'Location removed'); });
 app.get('/api/admin/automation', auth, roles('ADMIN', 'MANAGER'), (_, res) => ok(res, data.logs));
 app.get('/api/admin/insights', auth, roles('ADMIN', 'MANAGER'), (_, res) => ok(res, data.insights));
 app.get('/api/admin/escalations', auth, roles('ADMIN', 'MANAGER'), (_, res) => ok(res, data.escalations));
