@@ -1,7 +1,37 @@
-// Purpose: Group complaint lifecycle endpoints for the Express composition layer.
-// Purpose: Wire complaint creation and lifecycle requests.
 import { Router } from 'express';
 import { complaintController } from '../controllers/complaintController.js';
+import { authenticate } from '../middleware/authMiddleware.js';
+import { authorizeRoles } from '../middleware/roleMiddleware.js';
+
 const router = Router();
-router.post('/', complaintController.create);
+
+router.use(authenticate);
+router.get(
+  '/',
+  complaintController.list,
+);
+
+router.post(
+  '/',
+  authorizeRoles('USER', 'ADMIN'),
+  complaintController.create,
+);
+
+router.get(
+  '/my',
+  authorizeRoles('USER'),
+  complaintController.myComplaints,
+);
+
+router.get(
+  '/:id',
+  complaintController.details,
+);
+
+router.put(
+  '/:id',
+  authorizeRoles('USER', 'ADMIN'),
+  complaintController.update,
+);
+
 export default router;

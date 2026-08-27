@@ -20,6 +20,7 @@ import shiftRoutes from './routes/shiftRoutes.js';
 import locationRoutes from './routes/locationRoutes.js';
 import workforceRoutes from './routes/workforceRoutes.js';
 import managerProvisioningRoutes from './routes/managerProvisioningRoutes.js';
+import complaintRoutes from './routes/complaintRoutes.js';
 import { errorMiddleware } from './middleware/errorMiddleware.js';
 
 const app = express();
@@ -40,6 +41,8 @@ app.use('/api/admin/departments', departmentRoutes);
 app.use('/api/admin/shifts', shiftRoutes);
 app.use('/api/admin/locations', locationRoutes);
 app.use('/api/admin/workers', workforceRoutes);
+app.use('/api/complaints', complaintRoutes);
+
 app.use(
   '/api/admin/managers',
   managerProvisioningRoutes,
