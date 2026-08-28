@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import Complaint from '../models/Complaint.js';
 import ComplaintUpdate from '../models/ComplaintUpdate.js';
+import { analyzeComplaint } from './aiComplaintService.js';
 
 function createError(statusCode, message) {
   const error = new Error(message);
@@ -76,6 +77,39 @@ export async function createComplaint(user, input) {
     createdBy: user._id,
     message: 'Complaint submitted',
     type: 'STATUS',
+  });
+
+    const analysis = await analyzeComplaint({
+    title: complaint.title,
+    description: complaint.description,
+    location: complaint.location,
+  });
+
+  complaint.status = 'ANALYZING';
+  complaint.category = analysis.category;
+  complaint.subCategory = analysis.subCategory;
+  complaint.priority = analysis.priority;
+  complaint.priorityReason =
+    'Initial AI/fallback suggestion; deterministic scoring pending';
+
+  complaint.aiAnalysis = {
+    source: analysis.source,
+    summary: analysis.summary,
+    sentiment: analysis.sentiment,
+    keywords: analysis.keywords,
+    confidence: analysis.confidence,
+  };
+
+  await complaint.save();
+
+  await ComplaintUpdate.create({
+    complaint: complaint._id,
+    createdBy: user._id,
+    message:
+      analysis.source === 'AI'
+        ? 'Complaint analyzed using Gemini'
+        : 'Complaint analyzed using deterministic fallback',
+    type: 'SYSTEM',
   });
 
   return populatedComplaint(
