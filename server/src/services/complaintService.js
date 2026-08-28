@@ -2,6 +2,9 @@ import mongoose from 'mongoose';
 import Complaint from '../models/Complaint.js';
 import ComplaintUpdate from '../models/ComplaintUpdate.js';
 import { analyzeComplaint } from './aiComplaintService.js';
+import Escalation from '../models/Escalation.js';
+import { calculatePriority } from './priorityService.js';
+import { routeDepartment } from './departmentRoutingService.js';
 
 function createError(statusCode, message) {
   const error = new Error(message);
@@ -84,14 +87,31 @@ export async function createComplaint(user, input) {
     description: complaint.description,
     location: complaint.location,
   });
+    const priorityResult = calculatePriority(
+    {
+      title: complaint.title,
+      description: complaint.description,
+    },
+    analysis.priority,
+  );
 
-  complaint.status = 'ANALYZING';
-  complaint.category = analysis.category;
+  const routingResult = await routeDepartment({
+    category: analysis.category,
+    aiDepartment: analysis.department,
+  });
+
+  complaint.status = routingResult.department
+    ? 'ANALYZING'
+    : 'ESCALATED';
+      complaint.category = analysis.category;
   complaint.subCategory = analysis.subCategory;
-  complaint.priority = analysis.priority;
+    complaint.priority = priorityResult.priority;
+  complaint.priorityScore =
+    priorityResult.priorityScore;
   complaint.priorityReason =
-    'Initial AI/fallback suggestion; deterministic scoring pending';
-
+    priorityResult.priorityReason;
+  complaint.department =
+    routingResult.department?._id || null;
   complaint.aiAnalysis = {
     source: analysis.source,
     summary: analysis.summary,
@@ -101,7 +121,24 @@ export async function createComplaint(user, input) {
   };
 
   await complaint.save();
+  if (!routingResult.department) {
+    await Escalation.create({
+      complaint: complaint._id,
+      level: 'LEVEL_1',
+      reason: routingResult.routingReason,
+      status: 'OPEN',
+      createdAt: new Date(),
+    });
+  }
 
+  await ComplaintUpdate.create({
+    complaint: complaint._id,
+    createdBy: user._id,
+    message: routingResult.department
+      ? `Routed to ${routingResult.department.name}: ${routingResult.routingReason}`
+      : `Escalated: ${routingResult.routingReason}`,
+    type: 'SYSTEM',
+  });
   await ComplaintUpdate.create({
     complaint: complaint._id,
     createdBy: user._id,

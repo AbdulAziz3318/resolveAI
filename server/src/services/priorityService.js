@@ -1,4 +1,62 @@
-// Purpose: Calculate explainable priority scores from operational risk signals.
-const levels = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
-export function calculatePriority({ title = '', description = '' }) { const text = `${title} ${description}`.toLowerCase(); let score = 5; if (/danger|fire|unsafe/.test(text)) score += 40; if (/outage|essential|cannot|emergency/.test(text)) score += 30; if (/many|everyone|whole block/.test(text)) score += 25; if (/repeated|again|still/.test(text)) score += 15; if (/urgent|immediately|asap/.test(text)) score += 10; return { priority: score > 70 ? 'CRITICAL' : score > 40 ? 'HIGH' : score > 20 ? 'MEDIUM' : 'LOW', score, reason: `Priority score ${score} calculated from complaint signals` }; }
-export { levels };
+const priorityMap = (score) => {
+  if (score >= 71) return 'CRITICAL';
+  if (score >= 41) return 'HIGH';
+  if (score >= 21) return 'MEDIUM';
+  return 'LOW';
+};
+
+export function calculatePriority(input, aiPriority = null) {
+  const text = `${input.title} ${input.description}`.toLowerCase();
+
+  let score = 5;
+  const reasons = ['Normal operational issue (+5)'];
+
+  if (/danger|fire|unsafe|shock|burning/.test(text)) {
+    score += 40;
+    reasons.push('Safety risk detected (+40)');
+  }
+
+  if (
+    /outage|essential|cannot|not working|no water|no power/.test(
+      text,
+    )
+  ) {
+    score += 30;
+    reasons.push('Essential service failure detected (+30)');
+  }
+
+  if (
+    /everyone|many users|whole block|entire|all students/.test(
+      text,
+    )
+  ) {
+    score += 25;
+    reasons.push('Multiple users affected (+25)');
+  }
+
+  if (/repeated|again|still|recurring/.test(text)) {
+    score += 15;
+    reasons.push('Repeated issue detected (+15)');
+  }
+
+  if (/urgent|immediately|asap|emergency/.test(text)) {
+    score += 10;
+    reasons.push('Urgency language detected (+10)');
+  }
+
+  if (aiPriority === 'HIGH') {
+    score += 5;
+    reasons.push('AI high-priority signal (+5)');
+  }
+
+  if (aiPriority === 'CRITICAL') {
+    score += 10;
+    reasons.push('AI critical-priority signal (+10)');
+  }
+
+  return {
+    priority: priorityMap(score),
+    priorityScore: score,
+    priorityReason: reasons.join('; '),
+  };
+}
