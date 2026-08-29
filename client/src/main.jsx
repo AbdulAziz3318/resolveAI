@@ -29,7 +29,7 @@ const demoAccounts = {
   ADMIN: ["admin@resolveai.demo", "Admin@123"],
   MANAGER: ["manager@resolveai.demo", "Manager@123"],
   WORKER: ["worker@resolveai.demo", "Worker@123"],
-  USER: ["user@resolveai.demo", "Admin@123"],
+  USER: ["user@resolveai.demo", "User@123"],
 };
 const statusTone = (s) =>
   ({
