@@ -27,6 +27,16 @@ import { startAssignmentAcceptanceJob } from './jobs/assignmentAcceptanceJob.js'
 import workerComplaintRoutes from './routes/workerComplaintRoutes.js';
 import workerRoutes from './routes/workerRoutes.js';
 import managerRoutes from './routes/managerRoutes.js';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+
+const currentFile = fileURLToPath(import.meta.url);
+const currentDirectory = path.dirname(currentFile);
+const clientDistPath = path.resolve(
+  currentDirectory,
+  '../../client/dist',
+);
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -39,6 +49,9 @@ let database = { connected: false, mode: 'demo-store' };
 app.use(helmet());
 app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:5173' }));
 app.use(express.json());
+if (process.env.NODE_ENV === 'production') {
+  app.use(express.static(clientDistPath));
+}
 app.use(morgan('tiny'));
 app.use('/api/auth', rateLimit({ windowMs: 15 * 60 * 1000, limit: 80 }));
 app.use('/api/auth', authRoutes);
@@ -179,6 +192,19 @@ app.get('/api/incidents/:id', auth, roles('ADMIN', 'MANAGER'), (req, res) => { c
 app.post('/api/incidents/:id/link', auth, roles('ADMIN', 'MANAGER'), (req, res) => { const incident = (data.incidents || []).find(i => i._id === req.params.id); const c = data.complaints.find(x => x._id === req.body.complaintId); if (!incident || !c) return res.status(404).json({ success: false, message: 'Incident or complaint not found' }); if (!incident.linkedComplaints.includes(c._id)) incident.linkedComplaints.push(c._id); c.masterIncident = incident._id; ok(res, incident, 'Complaint linked'); });
 app.post('/api/incidents/:id/resolve', auth, roles('ADMIN', 'MANAGER'), (req, res) => { const incident = (data.incidents || []).find(i => i._id === req.params.id); if (!incident) return res.status(404).json({ success: false, message: 'Incident not found' }); incident.status = 'RESOLVED'; incident.resolvedAt = now(); ok(res, incident, 'Incident resolved'); });
 app.post('/api/incidents/:id/close', auth, roles('ADMIN', 'MANAGER'), (req, res) => { const incident = (data.incidents || []).find(i => i._id === req.params.id); if (!incident) return res.status(404).json({ success: false, message: 'Incident not found' }); incident.status = 'CLOSED'; ok(res, incident, 'Incident closed'); });
+app.use((request, response, next) => {
+  if (
+    process.env.NODE_ENV === 'production' &&
+    request.method === 'GET' &&
+    !request.path.startsWith('/api')
+  ) {
+    return response.sendFile(
+      path.join(clientDistPath, 'index.html'),
+    );
+  }
+
+  return next();
+});
 app.get('/api/manager/dashboard', auth, roles('MANAGER'), (req, res) => ok(res, { complaints: data.complaints.filter(c => c.department === req.user.department), workers: data.users.filter(u => u.department === req.user.department && u.role === 'WORKER'), escalations: data.escalations }));
 app.use((_, res) => res.status(404).json({ success: false, message: 'Route not found' }));
 app.use(errorMiddleware);
