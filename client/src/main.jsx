@@ -85,21 +85,30 @@ function App() {
     localStorage.setItem("resolveai-theme", nextTheme);
   }
   useEffect(() => {
+  if (auth) {
+    api.defaults.headers.common.Authorization =
+      `Bearer ${auth.token}`;
+
+    loadData();
+  }
+}, [auth, view]);
+  useEffect(() => {
   if (!auth?.token) {
     return undefined;
   }
 
   const refreshTimer = setInterval(() => {
-    loadData();
+    loadData(true);
   }, 15000);
 
   return () => {
     clearInterval(refreshTimer);
   };
 }, [auth?.token, view]);
-  async function loadData() {
-  setLoading(true);
-
+  async function loadData(silent = false) {
+  if (!silent) {
+    setLoading(true);
+  }
   try {
     const notificationResponse =
       await api.get('/notifications');
@@ -214,9 +223,11 @@ function App() {
         'Unable to load workspace',
     );
   } finally {
+  if (!silent) {
     setLoading(false);
   }
 }
+  }
   function login(payload) {
     setAuth(payload);
     localStorage.setItem("resolveai-auth", JSON.stringify(payload));
@@ -1096,3 +1107,4 @@ function NewComplaint({ close, done }) {
   );
 }
 createRoot(document.getElementById("root")).render(<App />);
+
