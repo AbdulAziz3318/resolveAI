@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { workerController } from '../controllers/workerController.js';
+import { assignmentController } from '../controllers/assignmentController.js';
 import { authenticate } from '../middleware/authMiddleware.js';
 import { authorizeRoles } from '../middleware/roleMiddleware.js';
 
@@ -8,14 +8,16 @@ const router = Router();
 router.use(authenticate);
 router.use(authorizeRoles('WORKER'));
 
-router.get(
-  '/dashboard',
-  workerController.dashboard,
+router.get('/', assignmentController.listMine);
+router.post(
+  '/:complaintId/accept',
+  assignmentController.accept,
 );
 
-router.put(
-  '/availability',
-  workerController.availability,
+router.post(
+  '/:complaintId/reject',
+  assignmentController.reject,
 );
+
 
 export default router;

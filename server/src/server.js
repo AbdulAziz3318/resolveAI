@@ -22,6 +22,11 @@ import workforceRoutes from './routes/workforceRoutes.js';
 import managerProvisioningRoutes from './routes/managerProvisioningRoutes.js';
 import complaintRoutes from './routes/complaintRoutes.js';
 import { errorMiddleware } from './middleware/errorMiddleware.js';
+import assignmentRoutes from './routes/assignmentRoutes.js';
+import { startAssignmentAcceptanceJob } from './jobs/assignmentAcceptanceJob.js';
+import workerComplaintRoutes from './routes/workerComplaintRoutes.js';
+import workerRoutes from './routes/workerRoutes.js';
+import managerRoutes from './routes/managerRoutes.js';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -42,11 +47,23 @@ app.use('/api/admin/shifts', shiftRoutes);
 app.use('/api/admin/locations', locationRoutes);
 app.use('/api/admin/workers', workforceRoutes);
 app.use('/api/complaints', complaintRoutes);
+app.use('/api/worker/assignments', assignmentRoutes);
 
+app.use(
+  '/api/worker/complaints',
+  workerComplaintRoutes,
+);
+
+app.use('/api/worker', workerRoutes);
 app.use(
   '/api/admin/managers',
   managerProvisioningRoutes,
 );
+app.use(
+  '/api/notifications',
+  notificationRoutes,
+);
+app.use('/api/manager', managerRoutes);
 app.use((request, response, next) => { response.on('finish', () => { if (database.connected && request.method !== 'GET' && response.statusCode < 400) persistStore(data).catch(error => console.error('Persistence failed:', error.message)); }); next(); });
 
 const now = () => new Date();
@@ -140,13 +157,9 @@ function scoreWorker(worker, complaint) { const active = data.complaints.filter(
 function assign(complaint, excluded = []) { const ranked = data.users.map(u => scoreWorker(u, complaint)).filter(x => x && !excluded.includes(x.worker._id)).sort((a, b) => b.score - a.score); const best = ranked[0]; if (!best) { complaint.status = 'ESCALATED'; data.escalations.unshift({ _id: randomUUID(), complaint: complaint._id, level: 'LEVEL_1', reason: 'No eligible worker available', status: 'OPEN', createdAt: now() }); log('ESCALATION', 'Complaint escalated because no eligible worker was available', complaint); return null; } const assignment = { _id: randomUUID(), complaint: complaint._id, worker: best.worker._id, assignmentScore: best.score, scoreBreakdown: best.breakdown, assignedAt: now(), acceptanceDeadline: new Date(Date.now() + 15 * 60000), reassignmentAttempt: 0, status: 'PENDING_ACCEPTANCE' }; data.assignments.unshift(assignment); complaint.assignedWorker = best.worker._id; complaint.status = 'AWAITING_ACCEPTANCE'; const department = data.departments.find(item => item._id === complaint.department); complaint.slaDeadline = calculateSla(complaint.priority, now(), department?.defaultSlaHours); notify(best.worker, 'ASSIGNMENT', 'New assignment', `${complaint.complaintId} · ${complaint.title}`, complaint, assignment); log('SMART_ASSIGNMENT', `Complaint automatically assigned to ${best.worker.name}`, complaint, { assignmentScore: best.score, scoreBreakdown: best.breakdown }); return assignment; }
 
 app.get('/api/health', (_, res) => ok(res, { status: 'healthy', service: 'ResolveAI API', mode: database.mode }));
-app.post('/api/worker/complaints/:id/accept', auth, roles('WORKER'), (req, res) => { const c = data.complaints.find(x => x._id === req.params.id); const a = data.assignments.find(x => x.complaint === c?._id && x.worker === req.user._id && x.status === 'PENDING_ACCEPTANCE'); if (!a) return res.status(404).json({ success: false, message: 'Pending assignment not found' }); a.status = 'ACCEPTED'; a.acceptedAt = now(); c.status = 'ACCEPTED'; notify(c.createdBy && data.users.find(u => u._id === c.createdBy), 'STATUS_UPDATE', 'Assignment accepted', `${c.complaintId} has been accepted by the assigned worker.`, c, a); ok(res, c, 'Assignment accepted'); });
-app.post('/api/worker/complaints/:id/start', auth, roles('WORKER'), (req, res) => { const c = data.complaints.find(x => x._id === req.params.id && x.assignedWorker === req.user._id); if (!c) return res.status(404).json({ success: false, message: 'Complaint not found' }); c.status = 'IN_PROGRESS'; c.updatedAt = now(); ok(res, c, 'Work started'); });
-app.post('/api/worker/complaints/:id/resolve', auth, roles('WORKER'), (req, res) => { const c = data.complaints.find(x => x._id === req.params.id && x.assignedWorker === req.user._id); if (!c || !req.body.resolutionNote) return res.status(400).json({ success: false, message: 'Resolution note is required' }); c.status = 'AWAITING_CONFIRMATION'; c.resolutionNote = req.body.resolutionNote; c.resolvedAt = now(); notify(data.users.find(u => u._id === c.createdBy), 'RESOLUTION', 'Resolution ready for confirmation', `${c.complaintId} is ready for your review.`, c); ok(res, c, 'Resolution submitted'); });
 app.post('/api/complaints/:id/confirm-resolution', auth, roles('USER'), (req, res) => { const c = data.complaints.find(x => x._id === req.params.id && x.createdBy === req.user._id); if (!c) return res.status(404).json({ success: false, message: 'Complaint not found' }); c.status = 'CLOSED'; c.closedAt = now(); c.userRating = req.body.rating; c.userFeedback = req.body.feedback; ok(res, c, 'Complaint closed'); });
 app.post('/api/complaints/:id/reopen', auth, roles('USER'), (req, res) => { const c = data.complaints.find(x => x._id === req.params.id && x.createdBy === req.user._id); if (!c) return res.status(404).json({ success: false, message: 'Complaint not found' }); c.status = 'REOPENED'; c.reopenReason = req.body.reason; log('ESCALATION', 'User rejected resolution and reopened complaint', c); ok(res, c, 'Complaint reopened'); });
 app.post('/api/complaints/:id/feedback', auth, roles('USER'), (req, res) => { const c = data.complaints.find(x => x._id === req.params.id && x.createdBy === req.user._id); if (!c) return res.status(404).json({ success: false, message: 'Complaint not found' }); c.userRating = Math.min(5, Math.max(1, Number(req.body.rating))); c.userFeedback = req.body.feedback || ''; ok(res, complaintView(c), 'Feedback saved'); });
-app.use('/api/notifications', auth, notificationRoutes);
 app.get('/api/admin/automation', auth, roles('ADMIN', 'MANAGER'), (_, res) => ok(res, data.logs));
 app.get('/api/admin/insights', auth, roles('ADMIN', 'MANAGER'), (_, res) => ok(res, data.insights));
 app.get('/api/admin/escalations', auth, roles('ADMIN', 'MANAGER'), (_, res) => ok(res, data.escalations));
@@ -167,7 +180,6 @@ app.post('/api/incidents/:id/link', auth, roles('ADMIN', 'MANAGER'), (req, res) 
 app.post('/api/incidents/:id/resolve', auth, roles('ADMIN', 'MANAGER'), (req, res) => { const incident = (data.incidents || []).find(i => i._id === req.params.id); if (!incident) return res.status(404).json({ success: false, message: 'Incident not found' }); incident.status = 'RESOLVED'; incident.resolvedAt = now(); ok(res, incident, 'Incident resolved'); });
 app.post('/api/incidents/:id/close', auth, roles('ADMIN', 'MANAGER'), (req, res) => { const incident = (data.incidents || []).find(i => i._id === req.params.id); if (!incident) return res.status(404).json({ success: false, message: 'Incident not found' }); incident.status = 'CLOSED'; ok(res, incident, 'Incident closed'); });
 app.get('/api/manager/dashboard', auth, roles('MANAGER'), (req, res) => ok(res, { complaints: data.complaints.filter(c => c.department === req.user.department), workers: data.users.filter(u => u.department === req.user.department && u.role === 'WORKER'), escalations: data.escalations }));
-app.get('/api/worker/dashboard', auth, roles('WORKER'), (req, res) => ok(res, { complaints: data.complaints.filter(c => c.assignedWorker === req.user._id), notifications: data.notifications.filter(n => n.user === req.user._id), worker: publicUser(req.user) }));
 app.use((_, res) => res.status(404).json({ success: false, message: 'Route not found' }));
 app.use(errorMiddleware);
 cron.schedule('*/5 * * * *', () => { data.complaints.filter(c => !['CLOSED', 'CANCELLED'].includes(c.status) && c.slaDeadline < now() && !c.slaBreached).forEach(c => { c.slaBreached = true; c.status = 'ESCALATED'; log('SLA_BREACH', 'SLA deadline exceeded; manager intervention required', c); }); });
@@ -175,6 +187,7 @@ database = await connectDatabase();
 if (database.connected) {
   const hydrated = await hydrateStore(data);
   if (!hydrated) await persistStore(data);
+  startAssignmentAcceptanceJob();
   console.log(`ResolveAI persistence enabled (${hydrated ? 'loaded existing state' : 'created initial state'})`);
 }
 app.listen(PORT, () => console.log(`ResolveAI API running on http://localhost:${PORT} (${database.mode})`));

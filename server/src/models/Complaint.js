@@ -160,6 +160,7 @@ const complaintSchema = new mongoose.Schema(
       default: false,
     },
 
+    startedAt: Date,
     resolutionNote: String,
     resolvedAt: Date,
     closedAt: Date,

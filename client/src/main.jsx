@@ -246,7 +246,7 @@ function App() {
           )}
           {view === "complaints" && (
             <Complaints
-              complaints={complaints.filter((complaint) => `${complaint.title} ${complaint.complaintId} ${complaint.reporter?.name || ""} ${complaint.assignedWorkerDetails?.name || ""}`.toLowerCase().includes(searchTerm.toLowerCase()))}
+              complaints={complaints.filter((complaint) => `${complaint.title} ${complaint.complaintId} ${complaint.createdBy?.name || ""} ${complaint.assignedWorker?.name || ""}`.toLowerCase().includes(searchTerm.toLowerCase()))}
               role={role}
               reload={loadData}
               toast={setToast}
@@ -507,7 +507,7 @@ function Overview({ role, overview, complaints, workers, onFilter }) {
                 <div className="issue-main">
                   <strong>{c.title}</strong>
                   <span>
-                    {c.complaintId} · {c.location?.building} · {c.reporter?.name || "Unknown reporter"} · Worker: {c.assignedWorkerDetails?.name || "Unassigned"}
+                    {c.complaintId} · {c.location?.building} · {c.createdBy?.name || "Unknown reporter"} · Worker: {c.assignedWorker?.name || "Unassigned"}
                   </span>
                 </div>
                 <span className={`badge ${statusTone(c.status)}`}>
@@ -617,10 +617,10 @@ function ComplaintRow({ c, role, reload, toast }) {
         </span>
       </div>
       <div className="people-cell">
-        <strong>{c.reporter?.name || "Unknown reporter"}</strong>
-        <span>Worker: {c.assignedWorkerDetails?.name || "Unassigned"}</span>
+        <strong>{c.createdBy?.name|| "Unknown reporter"}</strong>
+        <span>Worker: {c.assignedWorker?.name || "Unassigned"}</span>
       </div>
-      <span className="category-label">{c.category}<small>{c.departmentDetails?.name || "Unrouted"}</small></span>
+      <span className="category-label">{c.category}<small>{c.department?.name || "Unrouted"}</small></span>
       <span className={`priority ${priorityTone(c.priority)}`}>
         {c.priority}
       </span>
@@ -632,7 +632,7 @@ function ComplaintRow({ c, role, reload, toast }) {
           <button
             className="small-button"
             disabled={busy}
-            onClick={() => act(`/worker/complaints/${c._id}/accept`)}
+            onClick={() => act(`/worker/assignments/${c.complaintId}/accept`)}
           >
             Accept
           </button>
@@ -641,7 +641,7 @@ function ComplaintRow({ c, role, reload, toast }) {
           <button
             className="small-button"
             disabled={busy}
-            onClick={() => act(`/worker/complaints/${c._id}/start`)}
+            onClick={() => act(`/worker/complaints/${c.complaintId}/start`)}
           >
             Start work
           </button>
@@ -651,7 +651,7 @@ function ComplaintRow({ c, role, reload, toast }) {
             className="small-button"
             disabled={busy}
             onClick={() =>
-              act(`/worker/complaints/${c._id}/resolve`, {
+              act(`/worker/complaints/${c.complaintId}/resolve`, {
                 resolutionNote: "Issue repaired and tested successfully.",
               })
             }
@@ -664,7 +664,7 @@ function ComplaintRow({ c, role, reload, toast }) {
             className="small-button"
             disabled={busy}
             onClick={() =>
-              act(`/complaints/${c._id}/confirm-resolution`, {
+              act(`/complaints/${c.complaintId}/confirm-resolution`, {
                 rating: 5,
                 feedback: "Resolved promptly.",
               })
@@ -685,9 +685,9 @@ function Workforce({ workers, onAdd }) {
           <h3>Workforce capacity</h3>
           <p>Eligibility, skills and live workload</p>
         </div>
-        <button className="primary-button compact" onClick={onAdd}>
-          <Plus size={16} /> Add worker
-        </button>
+        <span className="live-label">
+  <i /> Workforce live
+</span>
       </div>
       <div className="worker-grid">
         {workers.map((w) => (

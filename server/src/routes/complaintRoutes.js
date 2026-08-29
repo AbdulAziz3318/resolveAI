@@ -34,4 +34,16 @@ router.put(
   complaintController.update,
 );
 
+router.post(
+  '/:id/confirm-resolution',
+  authorizeRoles('USER'),
+  complaintController.confirmResolution,
+);
+
+router.post(
+  '/:id/reopen',
+  authorizeRoles('USER'),
+  complaintController.reopen,
+);
+
 export default router;

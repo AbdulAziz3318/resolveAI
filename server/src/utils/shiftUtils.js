@@ -1,2 +1,51 @@
-// Purpose: Decide whether a worker's organization-local shift is active.
-export function isShiftActive(shift, date = new Date()) { if (!shift?.startTime || !shift?.endTime) return true; const day = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'][date.getDay()]; if (shift.workingDays?.length && !shift.workingDays.includes(day)) return false; const current = date.toTimeString().slice(0, 5); return shift.startTime <= shift.endTime ? current >= shift.startTime && current <= shift.endTime : current >= shift.startTime || current <= shift.endTime; }
+const dayNames = [
+  'SUN',
+  'MON',
+  'TUE',
+  'WED',
+  'THU',
+  'FRI',
+  'SAT',
+];
+
+function minutesFromTime(value) {
+  const [hours, minutes] = value
+    .split(':')
+    .map(Number);
+
+  return hours * 60 + minutes;
+}
+
+export function isShiftActive(
+  shift,
+  currentDate = new Date(),
+) {
+  if (!shift || !shift.isActive) {
+    return false;
+  }
+
+  const currentDay = dayNames[currentDate.getDay()];
+
+  if (!shift.workingDays.includes(currentDay)) {
+    return false;
+  }
+
+  const currentMinutes =
+    currentDate.getHours() * 60 +
+    currentDate.getMinutes();
+
+  const start = minutesFromTime(shift.startTime);
+  const end = minutesFromTime(shift.endTime);
+
+  if (start < end) {
+    return (
+      currentMinutes >= start &&
+      currentMinutes < end
+    );
+  }
+
+  return (
+    currentMinutes >= start ||
+    currentMinutes < end
+  );
+}

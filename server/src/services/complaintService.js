@@ -5,6 +5,7 @@ import { analyzeComplaint } from './aiComplaintService.js';
 import Escalation from '../models/Escalation.js';
 import { calculatePriority } from './priorityService.js';
 import { routeDepartment } from './departmentRoutingService.js';
+import { assignBestWorker } from './assignmentService.js';
 
 function createError(statusCode, message) {
   const error = new Error(message);
@@ -149,9 +150,15 @@ export async function createComplaint(user, input) {
     type: 'SYSTEM',
   });
 
+  if (routingResult.department) {
+    await assignBestWorker(complaint._id);
+  }
+
   return populatedComplaint(
     Complaint.findById(complaint._id),
   );
+
+  
 }
 
 export async function listMyComplaints(userId) {

@@ -1,7 +1,20 @@
-export function notificationPayload(user, type, title, message, complaint, assignment) {
-  const userId = typeof user === 'string' ? user : user?._id;
+import mongoose from 'mongoose';
+import Notification from '../models/Notification.js';
+
+// Temporarily retained for legacy endpoints still awaiting migration.
+export function notificationPayload(
+  user,
+  type,
+  title,
+  message,
+  complaint,
+  assignment,
+) {
   return {
-    user: userId,
+    user:
+      typeof user === 'string'
+        ? user
+        : user?._id,
     type,
     title,
     message,
@@ -12,27 +25,65 @@ export function notificationPayload(user, type, title, message, complaint, assig
   };
 }
 
-export function listNotifications(userId, notifications = []) {
-  return [...notifications]
-    .filter((notification) => notification.user === userId)
-    .sort((left, right) => new Date(right.createdAt) - new Date(left.createdAt));
+export async function listNotifications(
+  userId,
+) {
+  return Notification.find({
+    user: userId,
+  })
+    .populate(
+      'complaint',
+      'complaintId title status priority',
+    )
+    .populate(
+      'assignment',
+      'status acceptanceDeadline',
+    )
+    .sort({ createdAt: -1 });
 }
 
-export function markNotificationRead(userId, notificationId, notifications = []) {
-  const notification = notifications.find(
-    (entry) => entry.user === userId && entry._id === notificationId,
+export async function markNotificationRead(
+  userId,
+  notificationId,
+) {
+  if (
+    !mongoose.isValidObjectId(notificationId)
+  ) {
+    return null;
+  }
+
+  return Notification.findOneAndUpdate(
+    {
+      _id: notificationId,
+      user: userId,
+    },
+    {
+      $set: {
+        isRead: true,
+      },
+    },
+    {
+      new: true,
+    },
+  );
+}
+
+export async function markAllNotificationsRead(
+  userId,
+) {
+  const result = await Notification.updateMany(
+    {
+      user: userId,
+      isRead: false,
+    },
+    {
+      $set: {
+        isRead: true,
+      },
+    },
   );
 
-  if (!notification) return null;
-  notification.isRead = true;
-  return notification;
+  return {
+    modifiedCount: result.modifiedCount,
+  };
 }
-
-export function markAllNotificationsRead(userId, notifications = []) {
-  const unread = notifications.filter((entry) => entry.user === userId && !entry.isRead);
-  unread.forEach((entry) => {
-    entry.isRead = true;
-  });
-  return unread;
-}
-

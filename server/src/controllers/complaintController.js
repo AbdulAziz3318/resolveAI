@@ -5,6 +5,12 @@ import {
   listMyComplaints,
   updateComplaint,
 } from '../services/complaintService.js';
+
+import {
+  confirmResolution as confirmComplaintResolution,
+  reopenResolution,
+} from '../services/resolutionService.js';
+
 export const complaintController = {
   async create(request, response, next) {
     try {
@@ -56,10 +62,12 @@ export const complaintController = {
     }
   },
 
-    async list(request, response, next) {
+  async list(request, response, next) {
     try {
       const complaints =
-        await listAccessibleComplaints(request.user);
+        await listAccessibleComplaints(
+          request.user,
+        );
 
       return response.json({
         success: true,
@@ -83,6 +91,52 @@ export const complaintController = {
         success: true,
         message: 'Complaint updated',
         data: complaint,
+      });
+    } catch (error) {
+      return next(error);
+    }
+  },
+
+  async confirmResolution(
+    request,
+    response,
+    next,
+  ) {
+    try {
+      const complaint =
+        await confirmComplaintResolution({
+          complaintId: request.params.id,
+          userId: request.user._id,
+          rating: request.body.rating,
+          feedback: request.body.feedback,
+        });
+
+      return response.json({
+        success: true,
+        message:
+          'Resolution confirmed and complaint closed',
+        data: complaint,
+      });
+    } catch (error) {
+      return next(error);
+    }
+  },
+
+  async reopen(request, response, next) {
+    try {
+      const result = await reopenResolution({
+        complaintId: request.params.id,
+        userId: request.user._id,
+        reason: request.body.reason,
+      });
+
+      return response.json({
+        success: true,
+        message:
+          result.outcome === 'REASSIGNED'
+            ? 'Complaint reopened and reassigned'
+            : 'Complaint reopened and escalated',
+        data: result,
       });
     } catch (error) {
       return next(error);
