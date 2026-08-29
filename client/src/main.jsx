@@ -76,30 +76,98 @@ function App() {
     }
   }, [auth, view]);
   async function loadData() {
-    setLoading(true);
-    try {
-      const [c, o] = await Promise.all([
-        api.get("/complaints"),
-        ["ADMIN", "MANAGER"].includes(auth.user.role)
-          ? api.get("/analytics/overview")
-          : Promise.resolve({ data: { data: null } }),
-      ]);
-      setComplaints(c.data.data);
-      setOverview(o.data.data);
-      const notificationResponse = await api.get("/notifications");
-      setNotifications(notificationResponse.data.data);
-      if (["ADMIN", "MANAGER"].includes(auth.user.role)) {
-        const w = await api.get("/admin/workers");
-        setWorkers(w.data.data);
-        const l = await api.get("/admin/automation");
-        setLogs(l.data.data);
-      }
-    } catch (e) {
-      setToast(e.response?.data?.message || "Unable to load workspace");
-    } finally {
-      setLoading(false);
+  setLoading(true);
+
+  try {
+    const notificationResponse =
+      await api.get('/notifications');
+
+    setNotifications(
+      notificationResponse.data.data || [],
+    );
+
+    if (auth.user.role === 'USER') {
+      const response =
+        await api.get('/complaints/my');
+
+      setComplaints(response.data.data || []);
+      setOverview(null);
+      setWorkers([]);
+      setLogs([]);
     }
+
+    if (auth.user.role === 'WORKER') {
+      const response =
+        await api.get('/worker/dashboard');
+
+      const dashboard = response.data.data;
+
+      setComplaints(
+        dashboard.complaints || [],
+      );
+      setOverview(
+        dashboard.statistics || null,
+      );
+      setWorkers([]);
+      setLogs([]);
+    }
+
+    if (auth.user.role === 'MANAGER') {
+      const response =
+        await api.get('/manager/dashboard');
+
+      const dashboard = response.data.data;
+
+      setComplaints(
+        dashboard.complaints || [],
+      );
+      setWorkers(dashboard.workers || []);
+      setOverview(
+        dashboard.statistics || null,
+      );
+      setLogs([]);
+    }
+
+    if (auth.user.role === 'ADMIN') {
+      const [
+        complaintResponse,
+        overviewResponse,
+        workerResponse,
+        automationResponse,
+      ] = await Promise.all([
+        api.get('/complaints'),
+        api.get('/analytics/overview'),
+        api.get('/admin/workers'),
+        api.get('/admin/automation'),
+      ]);
+
+      setComplaints(
+        complaintResponse.data.data || [],
+      );
+      setOverview(
+        overviewResponse.data.data || null,
+      );
+      setWorkers(
+        workerResponse.data.data || [],
+      );
+      setLogs(
+        automationResponse.data.data || [],
+      );
+    }
+  } catch (error) {
+    if (error.response?.status === 401) {
+      logout();
+      return;
+    }
+
+    setToast(
+      error.response?.data?.message ||
+        'Unable to load workspace',
+    );
+  } finally {
+    setLoading(false);
   }
+}
   function login(payload) {
     setAuth(payload);
     localStorage.setItem("resolveai-auth", JSON.stringify(payload));

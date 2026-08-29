@@ -95,6 +95,8 @@ const accounts = [
     ],
     availability: 'AVAILABLE',
     maxActiveJobs: 5,
+    averageRating: 5,
+completedComplaints: 25,
   },
   {
     name: 'Demo Resident',

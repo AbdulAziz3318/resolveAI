@@ -35,6 +35,10 @@ export async function getWorkerDashboard(
         assignedWorker: workerId,
       })
         .populate('createdBy', 'name email')
+        .populate(
+  'assignedWorker',
+  'name employeeId email availability',
+)
         .populate('department', 'name')
         .sort({ updatedAt: -1 }),
 
