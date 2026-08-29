@@ -44,7 +44,22 @@ const statusTone = (s) =>
 const priorityTone = (p) =>
   ({ CRITICAL: "red", HIGH: "orange", MEDIUM: "amber", LOW: "green" })[p] ||
   "slate";
-
+const statusLabel = (status) =>
+  ({
+    SUBMITTED: 'Submitted',
+    ANALYZING: 'Analyzing',
+    AWAITING_ACCEPTANCE:
+      'Waiting for worker',
+    ACCEPTED: 'Accepted by worker',
+    IN_PROGRESS: 'Work in progress',
+    AWAITING_CONFIRMATION:
+      'Worker finished · awaiting user',
+    CLOSED: 'Resolved and closed',
+    REOPENED: 'Reopened by user',
+    ESCALATED: 'Manager attention required',
+    CANCELLED: 'Cancelled',
+  })[status] ||
+  status.replaceAll('_', ' ');
 function App() {
   const [auth, setAuth] = useState(() =>
     JSON.parse(localStorage.getItem("resolveai-auth") || "null"),
@@ -70,11 +85,18 @@ function App() {
     localStorage.setItem("resolveai-theme", nextTheme);
   }
   useEffect(() => {
-    if (auth) {
-      api.defaults.headers.common.Authorization = `Bearer ${auth.token}`;
-      loadData();
-    }
-  }, [auth, view]);
+  if (!auth?.token) {
+    return undefined;
+  }
+
+  const refreshTimer = setInterval(() => {
+    loadData();
+  }, 15000);
+
+  return () => {
+    clearInterval(refreshTimer);
+  };
+}, [auth?.token, view]);
   async function loadData() {
   setLoading(true);
 
@@ -740,7 +762,7 @@ function ComplaintRow({ c, role, reload, toast }) {
         {c.priority}
       </span>
       <span className={`badge ${statusTone(c.status)}`}>
-        {c.status.replaceAll("_", " ")}
+        {statusLabel(c.status)}
       </span>
       <div>
         {role === "WORKER" && c.status === "AWAITING_ACCEPTANCE" && (
