@@ -26,11 +26,10 @@ export const assignmentController = {
     try {
       const assignments = await populatedAssignment(
         Assignment.find({
-          worker: request.user._id,
-          status: {
-            $in: ['PENDING_ACCEPTANCE', 'ACCEPTED'],
-          },
-        }).sort({ assignedAt: -1 }),
+  worker: request.user._id,
+})
+  .sort({ assignedAt: -1 })
+  .limit(50)
       );
 
       return response.json({

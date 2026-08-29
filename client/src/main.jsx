@@ -58,6 +58,10 @@ const statusLabel = (status) =>
     REOPENED: 'Reopened by user',
     ESCALATED: 'Manager attention required',
     CANCELLED: 'Cancelled',
+    PENDING_ACCEPTANCE: 'Waiting for your acceptance',
+EXPIRED: 'Acceptance time expired',
+REJECTED: 'Rejected by worker',
+COMPLETED: 'Work submitted',
   })[status] ||
   status.replaceAll('_', ' ');
 function App() {
@@ -128,20 +132,57 @@ function App() {
     }
 
     if (auth.user.role === 'WORKER') {
-      const response =
-        await api.get('/worker/dashboard');
+  const [
+    dashboardResponse,
+    assignmentResponse,
+  ] = await Promise.all([
+    api.get('/worker/dashboard'),
+    api.get('/worker/assignments'),
+  ]);
 
-      const dashboard = response.data.data;
+  const dashboard =
+    dashboardResponse.data.data;
 
-      setComplaints(
-        dashboard.complaints || [],
+  const assignments =
+    assignmentResponse.data.data || [];
+
+  const assignmentComplaints =
+    assignments
+      .filter(
+        (assignment) =>
+          assignment.complaint,
+      )
+      .map((assignment) => ({
+        ...assignment.complaint,
+        assignmentStatus:
+          assignment.status,
+        acceptanceDeadline:
+          assignment.acceptanceDeadline,
+      }));
+
+  const combinedComplaints = [
+    ...(dashboard.complaints || []),
+  ];
+
+  for (const complaint of assignmentComplaints) {
+    const alreadyIncluded =
+      combinedComplaints.some(
+        (existing) =>
+          existing._id === complaint._id,
       );
-      setOverview(
-        dashboard.statistics || null,
-      );
-      setWorkers([]);
-      setLogs([]);
+
+    if (!alreadyIncluded) {
+      combinedComplaints.push(complaint);
     }
+  }
+
+  setComplaints(combinedComplaints);
+  setOverview(
+    dashboard.statistics || null,
+  );
+  setWorkers([]);
+  setLogs([]);
+}
 
     if (auth.user.role === 'MANAGER') {
       const response =
@@ -773,7 +814,13 @@ function ComplaintRow({ c, role, reload, toast }) {
         {c.priority}
       </span>
       <span className={`badge ${statusTone(c.status)}`}>
-        {statusLabel(c.status)}
+        {statusLabel(
+  ['EXPIRED', 'REJECTED'].includes(
+    c.assignmentStatus,
+  )
+    ? c.assignmentStatus
+    : c.status,
+)}
       </span>
       <div>
         {role === "WORKER" && c.status === "AWAITING_ACCEPTANCE" && (
