@@ -8,7 +8,7 @@ ResolveAI coordinates an organization’s existing users, workers, managers, dep
 
 - Repository: https://github.com/AbdulAziz3318/resolveAI
 - API health check: `/api/health`
-- Live application: Add the deployed Render URL here
+- Live application: (https://resolveai-3w4p.onrender.com/)
 
 ## Core workflow
 
