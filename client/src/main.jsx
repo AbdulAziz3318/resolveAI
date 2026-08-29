@@ -129,36 +129,63 @@ function App() {
     }
 
     if (auth.user.role === 'ADMIN') {
-      const [
-        complaintResponse,
-        overviewResponse,
-        workerResponse,
-        automationResponse,
-      ] = await Promise.all([
-        api.get('/complaints'),
-        api.get('/analytics/overview'),
-        api.get('/admin/workers'),
-        api.get('/admin/automation'),
-      ]);
+  const [
+    complaintResponse,
+    workerResponse,
+  ] = await Promise.all([
+    api.get('/complaints'),
+    api.get('/admin/workers'),
+  ]);
 
-      setComplaints(
-        complaintResponse.data.data || [],
-      );
-      setOverview(
-        overviewResponse.data.data || null,
-      );
-      setWorkers(
-        workerResponse.data.data || [],
-      );
-      setLogs(
-        automationResponse.data.data || [],
-      );
-    }
+  const adminComplaints =
+    complaintResponse.data.data || [];
+
+  const adminWorkers =
+    workerResponse.data.data || [];
+
+  setComplaints(adminComplaints);
+  setWorkers(adminWorkers);
+  setLogs([]);
+
+  setOverview({
+    totalComplaints: adminComplaints.length,
+
+    openComplaints:
+      adminComplaints.filter(
+        (complaint) =>
+          !['CLOSED', 'CANCELLED'].includes(
+            complaint.status,
+          ),
+      ).length,
+
+    criticalIssues:
+      adminComplaints.filter(
+        (complaint) =>
+          complaint.priority === 'CRITICAL' &&
+          !['CLOSED', 'CANCELLED'].includes(
+            complaint.status,
+          ),
+      ).length,
+
+    activeWorkers:
+      adminWorkers.filter(
+        (worker) => worker.isActive,
+      ).length,
+
+    availableWorkers:
+      adminWorkers.filter(
+        (worker) =>
+          worker.availability === 'AVAILABLE',
+      ).length,
+  });
+}
   } catch (error) {
     if (error.response?.status === 401) {
-      logout();
-      return;
-    }
+  setToast(
+    'Your session could not load. Please sign in again.',
+  );
+  return;
+}
 
     setToast(
       error.response?.data?.message ||
@@ -225,6 +252,26 @@ function App() {
           ))}
         </nav>
         <div className="sidebar-bottom">
+          <div className="sidebar-profile">
+  <div className="avatar">
+    {auth.user.name
+      ?.split(' ')
+      .map((part) => part[0])
+      .join('')
+      .slice(0, 2)}
+  </div>
+
+  <div>
+    <strong>{auth.user.name}</strong>
+    <span>{auth.user.email}</span>
+    <small>
+      {auth.user.role.replaceAll('_', ' ')}
+      {auth.user.employeeId
+        ? ` · ${auth.user.employeeId}`
+        : ''}
+    </small>
+  </div>
+</div>
           <div className="trust">
             <ShieldCheck size={16} />
             <span>Automation protected</span>
