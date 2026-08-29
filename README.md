@@ -25,7 +25,7 @@ The current demo mode uses an in-memory store so the complete experience works w
 | Admin | admin@resolveai.demo | Admin@123 |
 | Manager | manager@resolveai.demo | Manager@123 |
 | Worker | worker@resolveai.demo | Worker@123 |
-| User | user@resolveai.demo | Admin@123 |
+| User | user@resolveai.demo | User@123 |
 
 ## Implemented workflow
 
